@@ -32,6 +32,10 @@ import urllib
 import json
 import datetime
 
+global AcronymParser
+AcronymParser = 'Unknown'
+
+"""
 class RestDictConst:
     class ConstError(TypeError): pass
     def __setattr__(self,name,value):
@@ -39,6 +43,7 @@ class RestDictConst:
             raise self.ConstError, "Can't rebind const(%s)"%name
         self.__dict__[name]=value
 sys.modules[__name__]=RestDictConst()
+"""
 
 class RestAcronymParser():
 #{
@@ -47,13 +52,16 @@ class RestAcronymParser():
         """Setup constant variables."""
 
         # Constants
-        RestDictConst.ACRONYM_SHORT_FORM = 'NOT DEFINED'
-        RestDictConst.ACRONYM_LONG_FORM = ''
+        self.ACRONYM_SHORT_FORM = 'NOT DEFINED'
+        self.ACRONYM_LONG_FORM = ''
+        self.REST_DICT_URL =  ('http://www.nactem.ac.uk/software/acromine/dictionary.py')
+
+        """
         RestDictConst.ACRONYM_NOT_FOUND = 'Given Rest Short Form Acronym Not Found in Dictionary'
         RestDictConst.ACRONYM_FOUND = 'Found Requested Acronym in the Dictionary'
         RestDictConst.ACRONYM_REQUEST_TYPE = 'Manual Entry' # Request received via ManualEntry or API Request
         RestDictConst.UNKNOWN = 'unknown'
-        RestDictConst.REST_DICT_URL =  ('http://www.nactem.ac.uk/software/acromine/dictionary.py')
+        """
 
         # Acronym Dictionary for local lookup. Search for short form in the heap dictionary, if it exists return it otherwise do a remote DB query, pull & cache.
         # This improves the performance - Key, Value pair. Where Key is the short form and Value is the return result.
@@ -66,6 +74,30 @@ class RestAcronymParser():
 
         print("In RestAcronymParser Initializer: argAcronymShortForm {}, startTime {}, and endTime {}".format(self.ShortAcronym, self.startTime, self.endTime))
     # __init__
+
+    def GetSetOfLongAcronyms(self, argAcronyms, argLongAcronymCount):
+    #{
+        #print("In GetSetOfLongAcronyms. Required Long Acronym Count: %s\n" %int(argLongAcronymCount))
+        LongAcronymCnt = 0
+        LongAcronymList = []
+
+        # Output the object.
+        for sf in argAcronyms:
+            print('sf: %s' % sf[u'sf'])
+            for lf in sf[u'lfs']:
+                if LongAcronymCnt < int(argLongAcronymCount):
+                    LongAcronym = ('lf: %(lf)s, freq: %(freq)d, since: %(since)d' % lf)
+                    LongAcronymList.append(LongAcronym)
+                    LongAcronymCnt += 1
+
+                for var in lf[u'vars']:
+                    if LongAcronymCnt < int(argLongAcronymCount):
+                        LongAcronym = ('lf: %(lf)s, freq: %(freq)d, since: %(since)d' % var)
+                        LongAcronymList.append(LongAcronym)
+                        LongAcronymCnt += 1
+
+        return LongAcronymList
+    #}
 
     def PrintAcronyms(self, argAcronyms):
     #{
@@ -109,7 +141,7 @@ class RestAcronymParser():
     def GetLongAcronymFormsForShortForms(self):
     #{
         # Validate Input
-        if (self.ShortAcronym == RestDictConst.ACRONYM_SHORT_FORM):
+        if (self.ShortAcronym == self.ACRONYM_SHORT_FORM):
             retVal = ("Unexpected Rest Acronym Short Form Received. Please validate Input")
             print(retVal)
             return "Failed", retVal
@@ -120,7 +152,7 @@ class RestAcronymParser():
            # Return the list to the caller
            retVal = self.GetAcronymListFromDict()
            print("Found Acronym in Local Cache for Short Acronym %s" %self.ShortAcronym)
-           self.PrintAcronyms(retVal)
+           #self.PrintAcronyms(retVal)
            return "Success", retVal
         #}
         else:
@@ -128,8 +160,8 @@ class RestAcronymParser():
            print("Given Acronym %s Not Found in Local Cache. Perform Remote JSON Query." %self.ShortAcronym)
 
            # Access the service through HTTP GET.
-           params = urllib.urlencode({'sf': self.ShortAcronym, 'lf': RestDictConst.ACRONYM_LONG_FORM})
-           fileLikeObj = urllib.urlopen( RestDictConst.REST_DICT_URL, params)
+           params = urllib.urlencode({'sf': self.ShortAcronym, 'lf': self.ACRONYM_LONG_FORM})
+           fileLikeObj = urllib.urlopen( self.REST_DICT_URL, params)
 
            # Convert the JSON response to the Python object.
            retVal = json.loads(fileLikeObj.read())
@@ -141,26 +173,44 @@ class RestAcronymParser():
            else:
               print("Found Acronym in Remote Cache for Short Acronym %s" %self.ShortAcronym)
               self.InsertAcronymIntoDict(retVal)
-              self.PrintAcronyms(retVal)
+              #self.PrintAcronyms(retVal)
               return "Success", retVal
         #}
     #} 
 
 #} // End of Class RestAcronymParser():
 
-
-global AcronymParser
-AcronymParser = 'Unknown'
-"""
-def GetLongAcronymForms(argShortAcronym):
+def GetLongAcronymForms(argShortAcronym, argLongAcronymListCount, argStartTime, argEndTime):
 #{
-    print("Received a request for Long Acronyms for %s" %argShortAcronym)
+    print("Received a request for Long Acronyms for short acronym %s and count %s " %(argShortAcronym, argLongAcronymListCount))
 
-    if AcronymParser != 'Unknown':
-        AcronymParser = RestAcronymParser(args.shortAcronym, args.startTime, args.endTime)
-    AcronymParser.GetLongAcronymFormsForShortForms()
+    #global AcronymParser
+    #if AcronymParser != 'Unknown':
+    AcronymParser = RestAcronymParser(argShortAcronym, argStartTime, argEndTime)
+
+    retVal = AcronymParser.GetLongAcronymFormsForShortForms()
+
+    if (retVal[0] == 'Success'):
+        AcronymList = retVal[1]
+        #print("API Received Long Acronyms: %s" %AcronymList)
+        #AcronymParser.PrintAcronyms(AcronymList)
+
+        #print("\n\nAPI Printing Returning List of Long Acronyms. Count of Long Acronyms: %s\n" %argLongAcronymListCount)
+        retVal = AcronymParser.GetSetOfLongAcronyms(AcronymList, argLongAcronymListCount)
+
+        """
+        print(retVal)
+        while len(retVal) > 0:
+           astr = retVal[0]
+           del retVal[0]
+           print(astr)
+        """
+
+    print("Returning from API")
+    #print(retVal)
+    return retVal
 #}
-"""
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='JSON Short Acronym to Long Acronym Convertor')
@@ -178,9 +228,31 @@ if __name__ == "__main__":
 
     print("In Main Initializing RestAcronymParser")
     AcronymParser = RestAcronymParser(args.shortAcronym, args.startTime, args.endTime)
-    AcronymParser.GetLongAcronymFormsForShortForms()
+    retVal = AcronymParser.GetLongAcronymFormsForShortForms()
+    if (retVal[0] == 'Success'):
+        AcronymList = retVal[1]
+        print("Received Long Acronyms: %s" %AcronymList)
+        AcronymParser.PrintAcronyms(AcronymList)
+
     print("Unit Testing. Looking for same short name. It should find it in cache.")
-    AcronymParser.GetLongAcronymFormsForShortForms()
+    retVal = AcronymParser.GetLongAcronymFormsForShortForms()
+    if (retVal[0] == 'Success'):
+        AcronymList = retVal[1]
+        print("Received Long Acronyms: %s" %AcronymList)
+        AcronymParser.PrintAcronyms(AcronymList)
+
+        print("\n\nPrinting Returning List of Long Acronyms\n")
+        retVal = AcronymParser.GetSetOfLongAcronyms(AcronymList, 3)
+        print(retVal)
+        """
+        while len(retVal) > 0:
+           astr = retVal[0]
+           del retVal[0]
+           print(astr)
+        """
+        print("\n\nEnd of Printing Returning List of Long Acronyms\n")
+
+    print(retVal)
     print("In Main End of Testing")
 #if
 
